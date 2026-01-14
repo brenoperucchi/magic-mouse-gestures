@@ -1,0 +1,14 @@
+[Unit]
+Description=Magic Mouse 2 Gesture Driver
+Documentation=https://github.com/brenoperucchi/magic-mouse-gestures
+After=bluetooth.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/magic-mouse-gestures/magic_mouse_gestures.py
+Restart=on-failure
+RestartSec=5
+Environment="SUDO_USER=%u"
+
+[Install]
+WantedBy=multi-user.target
