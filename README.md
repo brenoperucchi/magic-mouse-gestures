@@ -123,6 +123,17 @@ Enable debug output:
 DEBUG=1 sudo python3 magic_mouse_gestures.py
 ```
 
+## Uninstall
+
+To completely remove Magic Mouse Gestures:
+
+```bash
+cd magic-mouse-gestures
+./uninstall.sh
+```
+
+This will stop the service, remove all installed files, and restore default permissions.
+
 ## Configuration
 
 Edit the constants at the top of `magic_mouse_gestures.py`:
