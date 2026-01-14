@@ -1,0 +1,4 @@
+# Magic Mouse 2 - Allow user access to HID raw device
+# This enables running the gesture driver without root privileges
+
+KERNEL=="hidraw*", ATTRS{idVendor}=="004c", ATTRS{idProduct}=="0269", MODE="0666"
