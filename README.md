@@ -31,70 +31,74 @@ The Magic Mouse 2 has a touch-sensitive surface, but Linux only exposes basic mo
 
 ## Installation
 
-### Quick Install
+### Quick Install (Recommended)
 
 ```bash
 git clone https://github.com/brenoperucchi/magic-mouse-gestures.git
 cd magic-mouse-gestures
-sudo ./install.sh
+./install.sh
 ```
 
-Then enable the service (see step 4 below).
+The installer will:
+- Check and install dependencies
+- Install the driver and udev rules (asks for sudo password)
+- Automatically reconnect your Magic Mouse to apply permissions
+- Enable and start the systemd service
+- Verify everything is working
+
+**Note:** Do NOT run with `sudo`. The script will request sudo only when needed.
 
 ### Manual Installation
+
+If you prefer to install manually:
 
 #### 1. Install dependencies
 
 **Arch Linux:**
 ```bash
-sudo pacman -S python wtype
+sudo pacman -S python wtype bluez-utils
 ```
 
 **Debian/Ubuntu:**
 ```bash
-sudo apt install python3 wtype
+sudo apt install python3 wtype bluez
 ```
 
 **Fedora:**
 ```bash
-sudo dnf install python3 wtype
+sudo dnf install python3 wtype bluez
 ```
 
-#### 2. Clone the repository
+#### 2. Clone and install
 
 ```bash
 git clone https://github.com/brenoperucchi/magic-mouse-gestures.git
 cd magic-mouse-gestures
-```
 
-#### 3. Install udev rules and driver
-
-```bash
-# Install the driver
+# Install driver
 sudo mkdir -p /opt/magic-mouse-gestures
 sudo cp magic_mouse_gestures.py /opt/magic-mouse-gestures/
 sudo chmod +x /opt/magic-mouse-gestures/magic_mouse_gestures.py
 
-# Install udev rules (allows non-root access to the device)
+# Install udev rules
 sudo cp udev/99-magic-mouse.rules /etc/udev/rules.d/
 sudo udevadm control --reload-rules
-sudo udevadm trigger
 ```
 
-**Important:** Reconnect your Magic Mouse via Bluetooth after installing udev rules.
+#### 3. Reconnect Magic Mouse
 
-#### 4. Install and enable the systemd user service
-
-The service runs as a user service (not system service) to properly access Wayland:
+Disconnect and reconnect via Bluetooth to apply the new permissions:
 
 ```bash
-# Create user service directory
+bluetoothctl disconnect <MAC_ADDRESS>
+bluetoothctl connect <MAC_ADDRESS>
+```
+
+#### 4. Enable the service
+
+```bash
 mkdir -p ~/.config/systemd/user
-
-# Copy the service file
 cp systemd/magic-mouse-gestures.service ~/.config/systemd/user/
-
-# Reload and enable the service
 systemctl --user daemon-reload
 systemctl --user enable --now magic-mouse-gestures
 ```
