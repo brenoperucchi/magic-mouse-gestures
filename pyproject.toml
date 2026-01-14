@@ -10,27 +10,27 @@ readme = "README.md"
 license = {text = "MIT"}
 authors = [
     {name = "Breno Perucchi", email = "breno@example.com"}
-    ]
-    keywords = ["magic-mouse", "gestures", "linux", "wayland", "macos"]
-    classifiers = [
-        "Development Status :: 3 - Alpha",
-            "Intended Audience :: End Users/Desktop",
-                "License :: OSI Approved :: MIT License",
-                    "Operating System :: POSIX :: Linux",
-                        "Programming Language :: Python :: 3",
-                            "Programming Language :: Python :: 3.8",
-                                "Programming Language :: Python :: 3.9",
-                                    "Programming Language :: Python :: 3.10",
-                                        "Programming Language :: Python :: 3.11",
-                                            "Programming Language :: Python :: 3.12",
-                                            ]
-                                            requires-python = ">=3.8"
-                                            dependencies = []
+]
+keywords = ["magic-mouse", "gestures", "linux", "wayland", "macos"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+requires-python = ">=3.8"
+dependencies = []
 
-                                            [project.urls]
-                                            Homepage = "https://github.com/brenoperucchi/magic-mouse-gestures"
-                                            Repository = "https://github.com/brenoperucchi/magic-mouse-gestures"
-                                            Issues = "https://github.com/brenoperucchi/magic-mouse-gestures/issues"
+[project.urls]
+Homepage = "https://github.com/brenoperucchi/magic-mouse-gestures"
+Repository = "https://github.com/brenoperucchi/magic-mouse-gestures"
+Issues = "https://github.com/brenoperucchi/magic-mouse-gestures/issues"
 
-                                            [project.scripts]
-                                            magic-mouse-gestures = "magic_mouse_gestures:main"
+[project.scripts]
+magic-mouse-gestures = "magic_mouse_gestures:main"
