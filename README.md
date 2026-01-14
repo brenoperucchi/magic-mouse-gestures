@@ -31,7 +31,19 @@ The Magic Mouse 2 has a touch-sensitive surface, but Linux only exposes basic mo
 
 ## Installation
 
-### 1. Install dependencies
+### Quick Install
+
+```bash
+git clone https://github.com/brenoperucchi/magic-mouse-gestures.git
+cd magic-mouse-gestures
+sudo ./install.sh
+```
+
+Then enable the service (see step 4 below).
+
+### Manual Installation
+
+#### 1. Install dependencies
 
 **Arch Linux:**
 ```bash
@@ -48,29 +60,49 @@ sudo apt install python3 wtype
 sudo dnf install python3 wtype
 ```
 
-### 2. Clone the repository
+#### 2. Clone the repository
 
 ```bash
 git clone https://github.com/brenoperucchi/magic-mouse-gestures.git
 cd magic-mouse-gestures
 ```
 
-### 3. Install udev rules (for non-root access)
+#### 3. Install udev rules and driver
 
 ```bash
+# Install the driver
+sudo mkdir -p /opt/magic-mouse-gestures
+sudo cp magic_mouse_gestures.py /opt/magic-mouse-gestures/
+sudo chmod +x /opt/magic-mouse-gestures/magic_mouse_gestures.py
+
+# Install udev rules (allows non-root access to the device)
 sudo cp udev/99-magic-mouse.rules /etc/udev/rules.d/
 sudo udevadm control --reload-rules
 sudo udevadm trigger
 ```
 
-Reconnect your Magic Mouse via Bluetooth after this step.
+**Important:** Reconnect your Magic Mouse via Bluetooth after installing udev rules.
 
-### 4. Install the systemd service
+#### 4. Install and enable the systemd user service
+
+The service runs as a user service (not system service) to properly access Wayland:
 
 ```bash
-sudo cp systemd/magic-mouse-gestures.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now magic-mouse-gestures.service
+# Create user service directory
+mkdir -p ~/.config/systemd/user
+
+# Copy the service file
+cp systemd/magic-mouse-gestures.service ~/.config/systemd/user/
+
+# Reload and enable the service
+systemctl --user daemon-reload
+systemctl --user enable --now magic-mouse-gestures
+```
+
+Verify it's running:
+
+```bash
+systemctl --user status magic-mouse-gestures
 ```
 
 ## Manual Usage
@@ -115,14 +147,25 @@ Either run with `sudo` or install the udev rules (see installation step 3).
 Check if the service is running:
 
 ```bash
-sudo systemctl status magic-mouse-gestures.service
+systemctl --user status magic-mouse-gestures
 ```
 
 View logs:
 
 ```bash
-journalctl -u magic-mouse-gestures.service -f
+journalctl --user -u magic-mouse-gestures -f
 ```
+
+### Verify udev rules are applied
+
+After reconnecting the Magic Mouse, check the hidraw device permissions:
+
+```bash
+# Find the Magic Mouse hidraw device
+ls -la /dev/hidraw*
+```
+
+The Magic Mouse device should show `crw-rw-rw-` permissions. If not, the udev rules may not have loaded correctly.
 
 ## Technical Details
 

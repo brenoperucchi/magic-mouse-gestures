@@ -18,6 +18,10 @@ if [[ $EUID -ne 0 ]]; then
    exit 1
 fi
 
+# Get the actual user (not root)
+ACTUAL_USER="${SUDO_USER:-$USER}"
+ACTUAL_HOME=$(eval echo "~$ACTUAL_USER")
+
 # Check dependencies
 echo "Checking dependencies..."
 if ! command -v python3 &> /dev/null; then
@@ -34,7 +38,7 @@ echo "Dependencies OK"
 echo
 
 # Install files
-echo "Installing to $INSTALL_DIR..."
+echo "Installing driver to $INSTALL_DIR..."
 mkdir -p "$INSTALL_DIR"
 cp "$SCRIPT_DIR/magic_mouse_gestures.py" "$INSTALL_DIR/"
 chmod +x "$INSTALL_DIR/magic_mouse_gestures.py"
@@ -44,16 +48,21 @@ echo "Installing udev rules..."
 cp "$SCRIPT_DIR/udev/99-magic-mouse.rules" /etc/udev/rules.d/
 udevadm control --reload-rules
 
-# Install systemd service
-echo "Installing systemd service..."
-cp "$SCRIPT_DIR/systemd/magic-mouse-gestures.service" /etc/systemd/system/
-systemctl daemon-reload
+# Install systemd user service
+echo "Installing systemd user service for $ACTUAL_USER..."
+USER_SERVICE_DIR="$ACTUAL_HOME/.config/systemd/user"
+mkdir -p "$USER_SERVICE_DIR"
+cp "$SCRIPT_DIR/systemd/magic-mouse-gestures.service" "$USER_SERVICE_DIR/"
+chown -R "$ACTUAL_USER:$ACTUAL_USER" "$USER_SERVICE_DIR"
 
 echo
 echo "Installation complete!"
 echo
 echo "Next steps:"
 echo "  1. Reconnect your Magic Mouse via Bluetooth"
-echo "  2. Enable the service: sudo systemctl enable --now magic-mouse-gestures"
-echo "  3. Check status: sudo systemctl status magic-mouse-gestures"
+echo "  2. Enable the service (run as your user, not root):"
+echo "     systemctl --user daemon-reload"
+echo "     systemctl --user enable --now magic-mouse-gestures"
+echo "  3. Check status:"
+echo "     systemctl --user status magic-mouse-gestures"
 echo
