@@ -26,9 +26,29 @@ The Magic Mouse 2 has a touch-sensitive surface, but Linux only exposes basic mo
 ## Requirements
 
 - Linux with kernel 5.15+ (built-in Magic Mouse 2 support)
-- Wayland compositor
+- **Wayland session** (not X11)
 - Python 3.8+
 - `wtype` (for sending keystrokes on Wayland)
+
+### Supported Desktops
+
+This driver uses `wtype` which requires **Wayland**. It works with:
+
+| Desktop | Wayland Support |
+|---------|-----------------|
+| **GNOME** | Default since 3.22 (2017+) |
+| **KDE Plasma** | Default since Plasma 6 (2024+) |
+| **Hyprland** | Wayland-native |
+| **Sway** | Wayland-native |
+
+To check if you're running Wayland:
+
+```bash
+echo $XDG_SESSION_TYPE
+# Should output: wayland
+```
+
+**Note:** X11 sessions are not supported (would require `xdotool` instead of `wtype`).
 
 ---
 
