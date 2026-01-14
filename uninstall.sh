@@ -73,6 +73,15 @@ else
     echo -e "${YELLOW}! Udev rules not found${NC}"
 fi
 
+# Remove modprobe config
+echo "Removing modprobe config..."
+if [[ -f "/etc/modprobe.d/hid-magicmouse.conf" ]]; then
+    sudo rm /etc/modprobe.d/hid-magicmouse.conf
+    echo -e "${GREEN}✓ Modprobe config removed${NC}"
+else
+    echo -e "${YELLOW}! Modprobe config not found${NC}"
+fi
+
 echo
 echo "================================="
 echo -e "${GREEN}Uninstall complete!${NC}"

@@ -82,6 +82,17 @@ echo "Installing udev rules..."
 sudo cp "$SCRIPT_DIR/udev/99-magic-mouse.rules" /etc/udev/rules.d/
 sudo udevadm control --reload-rules
 
+# Install modprobe config (for scroll optimization)
+echo "Installing modprobe config (scroll settings)..."
+sudo cp "$SCRIPT_DIR/modprobe/hid-magicmouse.conf" /etc/modprobe.d/
+
+# Reload hid_magicmouse module if loaded
+if lsmod | grep -q hid_magicmouse; then
+    echo "Reloading hid_magicmouse module..."
+    sudo modprobe -r hid_magicmouse 2>/dev/null || true
+    sudo modprobe hid_magicmouse 2>/dev/null || true
+fi
+
 echo -e "${GREEN}System files installed${NC}"
 echo
 

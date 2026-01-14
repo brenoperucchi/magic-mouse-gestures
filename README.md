@@ -284,6 +284,57 @@ The Linux kernel's `hid-magicmouse` driver converts touch data into scroll event
 
 This driver bypasses that limitation by reading directly from the HID raw interface.
 
+### Kernel Module: hid_magicmouse
+
+The `hid_magicmouse` kernel module handles **scroll functionality**. Our driver handles **swipe gestures**. Both work together.
+
+**Check if module is loaded:**
+
+```bash
+lsmod | grep hid_magicmouse
+```
+
+**Force load the module:**
+
+```bash
+sudo modprobe hid_magicmouse
+```
+
+**View module parameters:**
+
+```bash
+modinfo hid_magicmouse
+```
+
+**Current settings:**
+
+```bash
+systool -m hid_magicmouse -av
+```
+
+### Scroll Configuration
+
+The installer copies `modprobe/hid-magicmouse.conf` to `/etc/modprobe.d/` with optimized scroll settings:
+
+```
+options hid_magicmouse scroll_acceleration=1 scroll_speed=32 emulate_3button=0
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `scroll_acceleration` | 1 | Enable scroll acceleration |
+| `scroll_speed` | 32 | Scroll speed multiplier |
+| `emulate_3button` | 0 | Emulate middle button with 3-finger click |
+| `emulate_scroll_wheel` | 1 | Enable scroll wheel emulation |
+
+**Apply changes manually:**
+
+```bash
+sudo modprobe -r hid_magicmouse && sudo modprobe hid_magicmouse
+```
+
+Then reconnect the Magic Mouse via Bluetooth.
+
 ---
 
 ## Contributing
