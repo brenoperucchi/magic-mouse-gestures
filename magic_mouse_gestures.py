@@ -251,13 +251,23 @@ def detect_gesture(touches: List[Touch], state: GestureState) -> Optional[str]:
     num_fingers = len(touches)
 
     # Ignore too many fingers (usually noise/accidental touch)
+    # Reset state to avoid stale start_* values
     if num_fingers > MAX_FINGERS:
         if DEBUG:
             print(f"Ignoring {num_fingers} fingers (max={MAX_FINGERS})")
+        state.start_x = None
+        state.start_y = None
+        state.start_time = None
+        state.finger_count = 0
         return None
 
     # Require minimum fingers
+    # Reset state to avoid stale start_* values
     if num_fingers < MIN_FINGERS:
+        state.start_x = None
+        state.start_y = None
+        state.start_time = None
+        state.finger_count = 0
         return None
 
     avg_x = sum(t.x for t in touches) // num_fingers
@@ -416,8 +426,16 @@ def main():
             reconnect_delay = min(reconnect_delay * RECONNECT_DELAY_MULTIPLIER, RECONNECT_DELAY_MAX)
             continue
 
-        # Connected successfully - reset backoff
+        # Connected successfully - reset backoff and state
         reconnect_delay = RECONNECT_DELAY_INITIAL
+        # Reset gesture state to avoid false triggers from stale data
+        state.start_x = None
+        state.start_y = None
+        state.start_time = None
+        state.finger_count = 0
+        state.last_gesture_time = 0
+        state.last_scroll_time = 0
+
         print(f"Connected: {hidraw}")
         print("Swipe horizontally for browser back/forward")
         print("Press Ctrl+C to stop\n")
