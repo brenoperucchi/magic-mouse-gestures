@@ -14,6 +14,15 @@ Enable macOS-style swipe gestures on Apple Magic Mouse 2 for Linux/Wayland.
 - Automatic device detection and reconnection
 - Configurable via environment variables
 
+## Extended version
+
+For one-finger scrolling, middle click, native Wayland pinch zoom, and GNOME
+three-finger gestures, see
+[`Salacfrantisek/magic-mouse-wayland-gestures`](https://github.com/Salacfrantisek/magic-mouse-wayland-gestures).
+It is derived from this project, retains the MIT attribution, and is currently
+tested with the Bluetooth/Lightning Magic Mouse 2 (`004C:0269`) on GNOME
+Wayland.
+
 ## How It Works
 
 The Magic Mouse 2 has a touch-sensitive surface, but Linux only exposes basic mouse functionality by default. This driver reads raw HID data directly from the device to detect touch positions and translate horizontal swipes into keyboard shortcuts.
