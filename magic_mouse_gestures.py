@@ -195,14 +195,44 @@ def parse_report(data: bytes) -> List[Touch]:
 YDOTOOL_KEYS = {'alt': 56, 'Left': 105, 'Right': 106}
 
 
+_ydotool_syntax = None
+
+
+def detect_ydotool_syntax() -> str:
+    """Return 'code' for ydotool 1.x (numeric key codes) or 'name' for 0.x.
+
+    ydotool 0.x exits 0 whatever it is given, so feeding it the 1.x syntax
+    types the digits "5115" instead of Alt+Left. 1.x understands --version;
+    0.x rejects it. YDOTOOL_SYNTAX=name|code overrides the detection.
+    """
+    global _ydotool_syntax
+    if _ydotool_syntax is not None:
+        return _ydotool_syntax
+    override = os.environ.get('YDOTOOL_SYNTAX', '').strip().lower()
+    if override in ('name', 'code'):
+        _ydotool_syntax = override
+        return override
+    try:
+        result = subprocess.run(['ydotool', '--version'], capture_output=True, timeout=2)
+        _ydotool_syntax = 'code' if result.returncode == 0 else 'name'
+    except (OSError, subprocess.SubprocessError):
+        # Not installed or not runnable: don't cache, retry on the next call
+        return 'code'
+    return _ydotool_syntax
+
+
 def build_key_commands(modifier: str, key: str) -> List[Tuple[str, List[str]]]:
     """Return (backend, command) pairs in the order they should be tried."""
     commands = []
     if KEY_BACKEND in ('auto', 'wtype'):
         commands.append(('wtype', ['wtype', '-M', modifier, '-k', key, '-m', modifier]))
     if KEY_BACKEND in ('auto', 'ydotool'):
-        mod, k = YDOTOOL_KEYS[modifier], YDOTOOL_KEYS[key]
-        commands.append(('ydotool', ['ydotool', 'key', f'{mod}:1', f'{k}:1', f'{k}:0', f'{mod}:0']))
+        if detect_ydotool_syntax() == 'name':
+            args = [f'{modifier}+{key}']
+        else:
+            mod, k = YDOTOOL_KEYS[modifier], YDOTOOL_KEYS[key]
+            args = [f'{mod}:1', f'{k}:1', f'{k}:0', f'{mod}:0']
+        commands.append(('ydotool', ['ydotool', 'key'] + args))
     return commands
 
 
