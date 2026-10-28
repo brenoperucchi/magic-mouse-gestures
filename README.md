@@ -32,6 +32,8 @@ The Magic Mouse 2 has a touch-sensitive surface, but Linux only exposes basic mo
 | Swipe → (right) | Browser back (Alt+Left) |
 | Swipe ← (left) | Browser forward (Alt+Right) |
 
+Prefer the opposite direction? Set `SWIPE_REVERSE=1` to swap them.
+
 ## Requirements
 
 - Linux with kernel 5.15+ (built-in Magic Mouse 2 support)
@@ -210,6 +212,7 @@ All thresholds can be configured via environment variables (no need to edit code
 | `SCROLL_COOLDOWN` | 0.25 | Cooldown after scroll before allowing swipe (seconds) |
 | `MIN_FINGERS` | 1 | Minimum fingers for swipe gesture |
 | `MAX_FINGERS` | 2 | Maximum fingers (ignore if more) |
+| `SWIPE_REVERSE` | false | Swap back and forward (swipe left goes back, swipe right goes forward) |
 | `KEY_BACKEND` | auto | `auto` (try `wtype`, then `ydotool`), `wtype` or `ydotool` |
 | `YDOTOOL_SYNTAX` | auto | Force `name` (ydotool 0.x) or `code` (1.x) instead of detecting it |
 | `DEBUG` | false | Enable debug output (1, true, yes) |
