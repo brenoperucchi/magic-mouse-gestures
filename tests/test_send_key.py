@@ -58,15 +58,29 @@ class SendKeyTest(unittest.TestCase):
         self.assertEqual(left, ['ydotool', 'key', 'alt+Left'])
         self.assertEqual(right, ['ydotool', 'key', 'alt+Right'])
 
-    def test_version_flag_decides_syntax(self):
-        def version(rc):
-            return lambda cmd, **kw: subprocess.CompletedProcess(cmd, rc)
-        for rc, expected in ((0, 'code'), (1, 'name')):
+    def test_help_text_decides_syntax(self):
+        help_1x = 'Usage: ydotool <cmd> <args>\nAvailable commands:\n  key\nUse environment variable YDOTOOL_SOCKET to specify daemon socket.\n'
+        help_0x = 'Usage: ydotool <cmd> <args>\nAvailable commands:\n  key\n'
+        cases = (
+            (help_1x, '', 'code'),   # 1.x prints help to stdout
+            ('', help_0x, 'name'),   # 0.x prints help to stderr
+            ('', 'something odd', 'code'),  # unrecognised output: assume 1.x
+        )
+        for out, err, expected in cases:
+            run = lambda cmd, **kw: subprocess.CompletedProcess(cmd, 0, stdout=out, stderr=err)
             with mock.patch.object(mmg, '_ydotool_syntax', None), \
-                    mock.patch.dict(os.environ, {}, clear=False), \
-                    mock.patch.object(mmg.subprocess, 'run', version(rc)):
+                    mock.patch.object(mmg.subprocess, 'run', run):
                 os.environ.pop('YDOTOOL_SYNTAX', None)
                 self.assertEqual(mmg.detect_ydotool_syntax(), expected)
+
+    def test_ydotool_missing_assumes_1x_without_caching(self):
+        def run(cmd, **kw):
+            raise FileNotFoundError('ydotool')
+        with mock.patch.object(mmg, '_ydotool_syntax', None), \
+                mock.patch.object(mmg.subprocess, 'run', run):
+            os.environ.pop('YDOTOOL_SYNTAX', None)
+            self.assertEqual(mmg.detect_ydotool_syntax(), 'code')
+            self.assertIsNone(mmg._ydotool_syntax)
 
     def test_env_override_wins(self):
         with mock.patch.object(mmg, '_ydotool_syntax', None), \
