@@ -202,8 +202,10 @@ def detect_ydotool_syntax() -> str:
     """Return 'code' for ydotool 1.x (numeric key codes) or 'name' for 0.x.
 
     ydotool 0.x exits 0 whatever it is given, so feeding it the 1.x syntax
-    types the digits "5115" instead of Alt+Left. 1.x understands --version;
-    0.x rejects it. YDOTOOL_SYNTAX=name|code overrides the detection.
+    types the digits "5115" instead of Alt+Left. --version can't tell them
+    apart (1.0.x rejects it too), but only the 1.x help text mentions the
+    YDOTOOL_SOCKET variable. When ydotool can't be run, assume 1.x.
+    YDOTOOL_SYNTAX=name|code overrides the detection.
     """
     global _ydotool_syntax
     if _ydotool_syntax is not None:
@@ -213,11 +215,15 @@ def detect_ydotool_syntax() -> str:
         _ydotool_syntax = override
         return override
     try:
-        result = subprocess.run(['ydotool', '--version'], capture_output=True, timeout=2)
-        _ydotool_syntax = 'code' if result.returncode == 0 else 'name'
+        result = subprocess.run(['ydotool', 'help'], capture_output=True, text=True, timeout=2)
     except (OSError, subprocess.SubprocessError):
         # Not installed or not runnable: don't cache, retry on the next call
         return 'code'
+    # 0.x prints its help to stderr, 1.x to stdout
+    text = (result.stdout or '') + (result.stderr or '')
+    if 'Available commands' not in text:
+        return 'code'
+    _ydotool_syntax = 'code' if 'YDOTOOL_SOCKET' in text else 'name'
     return _ydotool_syntax
 
 
