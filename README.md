@@ -9,7 +9,7 @@ Enable macOS-style swipe gestures on Apple Magic Mouse 2 for Linux/Wayland.
 ## Features
 
 - **Horizontal swipe gestures** for browser back/forward navigation
-- Works with **Wayland** compositors (Hyprland, Sway, GNOME, etc.)
+- Works with **Wayland** compositors, using `wtype` or `ydotool` to send keys
 - Lightweight Python daemon with minimal dependencies
 - Automatic device detection and reconnection
 - Configurable via environment variables
@@ -37,18 +37,28 @@ The Magic Mouse 2 has a touch-sensitive surface, but Linux only exposes basic mo
 - Linux with kernel 5.15+ (built-in Magic Mouse 2 support)
 - **Wayland session** (not X11)
 - Python 3.8+
-- `wtype` (for sending keystrokes on Wayland), or `ydotool` as a fallback
+- A way to send keystrokes: `wtype`, or `ydotool` (with its `ydotoold` daemon) as a fallback
+
+### Supported Devices
+
+| Device | Vendor:Product | Status |
+|--------|----------------|--------|
+| Magic Mouse 2 (Bluetooth/Lightning) | `004C:0269` | Tested (Hyprland) |
+| Magic Mouse 1, Magic Mouse 2 USB-C | `05AC:030D`, `05AC:0323` | Not supported |
 
 ### Supported Desktops
 
-This driver uses `wtype` which requires **Wayland**. It works with:
+Keys are sent with `wtype` when the compositor allows it, and with `ydotool`
+otherwise (see [ydotool fallback](#ydotool-fallback)):
 
-| Desktop | Wayland Support |
-|---------|-----------------|
-| **GNOME** | Default since 3.22 (2017+) |
-| **KDE Plasma** | Default since Plasma 6 (2024+) |
-| **Hyprland** | Wayland-native |
-| **Sway** | Wayland-native |
+| Desktop | `wtype` | `ydotool` |
+|---------|---------|-----------|
+| **Hyprland** | Tested | Tested |
+| **GNOME** (Wayland) | Does not work: Mutter lacks the virtual-keyboard protocol (see #1) | Reported working (see #1), not tested here |
+| **Sway**, **KDE Plasma** (Wayland) | Not tested | Not tested |
+
+`ydotool` works at the `uinput` level, below the compositor, so it should work
+anywhere it can open `/dev/uinput`.
 
 To check if you're running Wayland:
 
@@ -69,6 +79,25 @@ The command line of `ydotool` changed between 0.x (key names) and 1.x (numeric
 key codes), and 0.x silently types the wrong thing when given the 1.x syntax.
 The driver detects the version from the output of `ydotool help`; set
 `YDOTOOL_SYNTAX=name` (0.x) or `YDOTOOL_SYNTAX=code` (1.x) to override it.
+
+#### Setting up ydotool
+
+1. Install it (`sudo pacman -S ydotool`, `sudo apt install ydotool` or
+   `sudo dnf install ydotool`).
+2. Start the daemon as your user. Arch ships a user unit:
+
+   ```bash
+   systemctl --user enable --now ydotool
+   ```
+
+   On other distributions run `ydotoold` yourself or write a user unit for it.
+3. Make sure your user can open `/dev/uinput`. Either add yourself to the
+   `input` group (`sudo usermod -aG input $USER`, then log in again) or grant an
+   ACL: `sudo setfacl -m u:$USER:rw /dev/uinput`.
+
+Check it end to end by running `KEY_BACKEND=ydotool DEBUG=1 python3
+magic_mouse_gestures.py` and swiping: the log should show the back/forward
+actions and your browser should navigate.
 
 **Note:** X11 sessions are not supported (would require `xdotool` instead of `wtype`).
 
@@ -102,17 +131,17 @@ The installer will:
 
 **Arch Linux:**
 ```bash
-sudo pacman -S python wtype bluez-utils
+sudo pacman -S python wtype bluez-utils   # add ydotool for GNOME
 ```
 
 **Debian/Ubuntu:**
 ```bash
-sudo apt install python3 wtype bluez
+sudo apt install python3 wtype bluez   # add ydotool for GNOME
 ```
 
 **Fedora:**
 ```bash
-sudo dnf install python3 wtype bluez
+sudo dnf install python3 wtype bluez   # add ydotool for GNOME
 ```
 
 #### 2. Install driver and udev rules
@@ -181,6 +210,8 @@ All thresholds can be configured via environment variables (no need to edit code
 | `SCROLL_COOLDOWN` | 0.25 | Cooldown after scroll before allowing swipe (seconds) |
 | `MIN_FINGERS` | 1 | Minimum fingers for swipe gesture |
 | `MAX_FINGERS` | 2 | Maximum fingers (ignore if more) |
+| `KEY_BACKEND` | auto | `auto` (try `wtype`, then `ydotool`), `wtype` or `ydotool` |
+| `YDOTOOL_SYNTAX` | auto | Force `name` (ydotool 0.x) or `code` (1.x) instead of detecting it |
 | `DEBUG` | false | Enable debug output (1, true, yes) |
 
 ### Example: Custom configuration
@@ -230,7 +261,7 @@ DEBUG=1 python3 /opt/magic-mouse-gestures/magic_mouse_gestures.py
 Or from the project directory:
 
 ```bash
-DEBUG=1 python3 ~/Projects/magic-mouse-gestures/magic_mouse_gestures.py
+DEBUG=1 python3 magic_mouse_gestures.py
 ```
 
 ### Step 3: Save debug output to a file
@@ -260,12 +291,37 @@ journalctl --user -u magic-mouse-gestures -f
 Make sure your Magic Mouse 2 is connected via Bluetooth:
 
 ```bash
-bluetoothctl devices
+bluetoothctl devices Connected
+```
+
+Then check that the kernel exposes it as `004C:0269`:
+
+```bash
+grep -H HID_ID /sys/class/hidraw/hidraw*/device/uevent
 ```
 
 ### Permission denied
 
 Either run with `sudo` or install the udev rules (see installation).
+
+### Gestures are detected but nothing happens
+
+Run with `DEBUG=1` (see [Debugging](#debugging)). If swipes are logged but the
+browser doesn't navigate, the key backend is failing:
+
+- On GNOME, `wtype` prints `Compositor does not support the virtual keyboard
+  protocol`. Install `ydotool` and start `ydotoold` (see
+  [Setting up ydotool](#setting-up-ydotool)).
+- If `ydotoold` is not running, `ydotool` fails to connect to its socket
+  (`/run/user/<uid>/.ydotool_socket`). Check `systemctl --user status ydotool`.
+- Force a backend with `KEY_BACKEND=wtype` or `KEY_BACKEND=ydotool` to see
+  which one fails.
+
+### Swipes type numbers instead of navigating
+
+ydotool 0.x silently accepts the 1.x syntax and types the key codes. The
+driver detects the version from `ydotool help`; if it guesses wrong, set
+`YDOTOOL_SYNTAX=name` (0.x) or `YDOTOOL_SYNTAX=code` (1.x).
 
 ### Gestures not working
 
@@ -301,24 +357,30 @@ The Magic Mouse device should show `crw-rw-rw-` permissions.
 
 ### HID Data Structure
 
-The Magic Mouse 2 sends touch data in the following format:
+The Magic Mouse 2 sends touch data in report `0x12`:
 
 - **Header (14 bytes):** Mouse movement and button states
 - **Touch data (8 bytes per finger):**
-  - Bytes 0-1: X position (12-bit)
-  - Bytes 1-2: Y position (12-bit)
+  - Bytes 0-2: X and Y position (two 12-bit values)
   - Bytes 3-4: Touch ellipse dimensions
   - Bytes 5-6: Touch ID and orientation
-  - Byte 7: Touch state (1-4 = contact, 5-7 = lift)
+  - Byte 7: Touch state (high nibble; 0 means the finger is up)
 
 ### Coordinate Parsing
 
-Coordinates are 12-bit values (0-4095) parsed as:
+Coordinates are **signed** 12-bit values, as in the kernel's `hid-magicmouse`
+driver. Measured on a Magic Mouse 2, X spans roughly -700 to 1300. The driver
+reads them as unsigned (0-4095):
 
 ```python
 x = tdata[0] | ((tdata[1] & 0x0F) << 8)
 y = (tdata[2] << 4) | (tdata[1] >> 4)
 ```
+
+so a position left of the center shows up as a value near 4095. That is why
+`wrap_delta()` computes movement modulo 4096: swipes still come out with the
+right sign. The one case it can't cover is averaging two fingers that sit on
+opposite sides of the center.
 
 ### Why not libinput?
 
@@ -383,6 +445,9 @@ Then reconnect the Magic Mouse via Bluetooth.
 
 Contributions are welcome! Feel free to open issues or submit pull requests.
 
+Run the tests with `python3 -m pytest`. They cover key sending and the
+`ydotool` syntax detection and need neither a mouse nor a running compositor.
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
@@ -391,3 +456,4 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 - Apple Magic Mouse 2 HID documentation from the Linux kernel source
 - The Hyprland and Wayland communities
+- [@JaapStruyk](https://github.com/JaapStruyk) for the original `ydotool` report and diff (#1), and [@sodonnel](https://github.com/sodonnel) for the `ydotool` 0.x/1.x syntax findings
