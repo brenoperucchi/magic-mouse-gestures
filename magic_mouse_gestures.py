@@ -63,6 +63,7 @@ SCROLL_COOLDOWN = get_env_float('SCROLL_COOLDOWN', 0.25)     # Cooldown after sc
 MIN_FINGERS = get_env_int('MIN_FINGERS', 1)                  # Min fingers for swipe
 MAX_FINGERS = get_env_int('MAX_FINGERS', 2)                  # Max fingers (ignore >2)
 KEY_BACKEND = os.environ.get('KEY_BACKEND', 'auto').lower()  # auto, wtype or ydotool
+SWIPE_REVERSE = os.environ.get('SWIPE_REVERSE', '').lower() in ('1', 'true', 'yes')  # Swap back/forward
 
 DEBUG = os.environ.get('DEBUG', '').lower() in ('1', 'true', 'yes')
 
@@ -391,8 +392,20 @@ def print_config():
     print(f"  SCROLL_COOLDOWN    = {SCROLL_COOLDOWN} s")
     print(f"  MIN_FINGERS        = {MIN_FINGERS}")
     print(f"  MAX_FINGERS        = {MAX_FINGERS}")
+    print(f"  SWIPE_REVERSE      = {SWIPE_REVERSE}")
     print(f"  DEBUG              = {DEBUG}")
     print()
+
+
+def gesture_action(gesture: str) -> Optional[Tuple[str, str, str]]:
+    """Map a swipe to (modifier, key, label). SWIPE_REVERSE swaps back and forward."""
+    back = ('alt', 'Left', "\u2190 Back")
+    forward = ('alt', 'Right', "\u2192 Forward")
+    if gesture == "swipe_right":
+        return forward if SWIPE_REVERSE else back
+    if gesture == "swipe_left":
+        return back if SWIPE_REVERSE else forward
+    return None
 
 
 def run_device_loop(fd: int, state: GestureState) -> bool:
@@ -435,12 +448,9 @@ def run_device_loop(fd: int, state: GestureState) -> bool:
 
         gesture = detect_gesture(touches, state)
 
-        if gesture == "swipe_left":
-            if send_key('alt', 'Right'):
-                print("→ Forward")
-        elif gesture == "swipe_right":
-            if send_key('alt', 'Left'):
-                print("← Back")
+        action = gesture_action(gesture)
+        if action and send_key(action[0], action[1]):
+            print(action[2])
 
 
 def main():
