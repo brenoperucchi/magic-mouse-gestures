@@ -37,9 +37,9 @@ if ! command -v python3 &> /dev/null; then
     exit 1
 fi
 
-if ! command -v wtype &> /dev/null; then
-    echo -e "${RED}Error: wtype is required (for Wayland key simulation)${NC}"
-    echo "Install with: sudo pacman -S wtype"
+if ! command -v wtype &> /dev/null && ! command -v ydotool &> /dev/null; then
+    echo -e "${RED}Error: wtype or ydotool is required (for Wayland key simulation)${NC}"
+    echo "Install with: sudo pacman -S wtype  (or ydotool if your compositor lacks virtual-keyboard support, e.g. GNOME)"
     exit 1
 fi
 

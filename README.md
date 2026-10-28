@@ -37,7 +37,7 @@ The Magic Mouse 2 has a touch-sensitive surface, but Linux only exposes basic mo
 - Linux with kernel 5.15+ (built-in Magic Mouse 2 support)
 - **Wayland session** (not X11)
 - Python 3.8+
-- `wtype` (for sending keystrokes on Wayland)
+- `wtype` (for sending keystrokes on Wayland), or `ydotool` as a fallback
 
 ### Supported Desktops
 
@@ -57,6 +57,14 @@ echo $XDG_SESSION_TYPE
 # Should output: wayland
 ```
 
+### ydotool fallback
+
+Some compositors (notably GNOME) do not support the virtual keyboard protocol
+that `wtype` relies on. In that case the driver falls back to `ydotool`, which
+works at the uinput level. It needs the `ydotoold` daemon running and access to
+its socket. Set `KEY_BACKEND=wtype` or `KEY_BACKEND=ydotool` to force one
+backend; the default is `auto` (try `wtype`, then `ydotool`).
+
 **Note:** X11 sessions are not supported (would require `xdotool` instead of `wtype`).
 
 ---
@@ -74,7 +82,7 @@ cd magic-mouse-gestures
 ```
 
 The installer will:
-- Check dependencies (`python3`, `wtype`, `bluetoothctl`)
+- Check dependencies (`python3`, `wtype` or `ydotool`, `bluetoothctl`)
 - Install the driver to `/opt/magic-mouse-gestures/`
 - Install udev rules for non-root access
 - Reconnect Magic Mouse to apply permissions
