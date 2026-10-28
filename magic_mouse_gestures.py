@@ -16,7 +16,7 @@ import glob
 import subprocess
 import time
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 __version__ = "1.2.0"
 
@@ -62,6 +62,7 @@ SWIPE_VELOCITY_MIN = get_env_int('SWIPE_VELOCITY_MIN', 200)  # Min horizontal ve
 SCROLL_COOLDOWN = get_env_float('SCROLL_COOLDOWN', 0.25)     # Cooldown after scroll (seconds)
 MIN_FINGERS = get_env_int('MIN_FINGERS', 1)                  # Min fingers for swipe
 MAX_FINGERS = get_env_int('MAX_FINGERS', 2)                  # Max fingers (ignore >2)
+KEY_BACKEND = os.environ.get('KEY_BACKEND', 'auto').lower()  # auto, wtype or ydotool
 
 DEBUG = os.environ.get('DEBUG', '').lower() in ('1', 'true', 'yes')
 
@@ -190,28 +191,41 @@ def parse_report(data: bytes) -> List[Touch]:
     return touches
 
 
-def send_key(modifier: str, key: str) -> bool:
-    """Send a key combination via wtype (Wayland)"""
-    try:
-        env = os.environ.copy()
-        user = os.environ.get('SUDO_USER', os.environ.get('USER'))
-        if user:
-            uid = subprocess.run(
-                ['id', '-u', user],
-                capture_output=True, text=True
-            ).stdout.strip()
-            env['XDG_RUNTIME_DIR'] = f'/run/user/{uid}'
-        env['WAYLAND_DISPLAY'] = os.environ.get('WAYLAND_DISPLAY', 'wayland-1')
+# Linux input event codes used by the ydotool fallback
+YDOTOOL_KEYS = {'alt': 56, 'Left': 105, 'Right': 106}
 
-        subprocess.run(
-            ['wtype', '-M', modifier, '-k', key, '-m', modifier],
-            check=True, capture_output=True, env=env
-        )
-        return True
-    except Exception as e:
-        if DEBUG:
-            print(f"Key send failed: {e}", file=sys.stderr)
-        return False
+
+def build_key_commands(modifier: str, key: str) -> List[Tuple[str, List[str]]]:
+    """Return (backend, command) pairs in the order they should be tried."""
+    commands = []
+    if KEY_BACKEND in ('auto', 'wtype'):
+        commands.append(('wtype', ['wtype', '-M', modifier, '-k', key, '-m', modifier]))
+    if KEY_BACKEND in ('auto', 'ydotool'):
+        mod, k = YDOTOOL_KEYS[modifier], YDOTOOL_KEYS[key]
+        commands.append(('ydotool', ['ydotool', 'key', f'{mod}:1', f'{k}:1', f'{k}:0', f'{mod}:0']))
+    return commands
+
+
+def send_key(modifier: str, key: str) -> bool:
+    """Send a key combination via wtype, falling back to ydotool (Wayland)"""
+    env = os.environ.copy()
+    user = os.environ.get('SUDO_USER', os.environ.get('USER'))
+    if user:
+        uid = subprocess.run(
+            ['id', '-u', user],
+            capture_output=True, text=True
+        ).stdout.strip()
+        env['XDG_RUNTIME_DIR'] = f'/run/user/{uid}'
+    env['WAYLAND_DISPLAY'] = os.environ.get('WAYLAND_DISPLAY', 'wayland-1')
+
+    for backend, cmd in build_key_commands(modifier, key):
+        try:
+            subprocess.run(cmd, check=True, capture_output=True, env=env)
+            return True
+        except Exception as e:
+            if DEBUG:
+                print(f"Key send via {backend} failed: {e}", file=sys.stderr)
+    return False
 
 
 def reset_state(state: GestureState, avg_x: int, avg_y: int, now: float, finger_count: int):
