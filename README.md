@@ -65,6 +65,11 @@ works at the uinput level. It needs the `ydotoold` daemon running and access to
 its socket. Set `KEY_BACKEND=wtype` or `KEY_BACKEND=ydotool` to force one
 backend; the default is `auto` (try `wtype`, then `ydotool`).
 
+The command line of `ydotool` changed between 0.x (key names) and 1.x (numeric
+key codes), and 0.x silently types the wrong thing when given the 1.x syntax.
+The driver detects the version via `ydotool --version`; set
+`YDOTOOL_SYNTAX=name` (0.x) or `YDOTOOL_SYNTAX=code` (1.x) to override it.
+
 **Note:** X11 sessions are not supported (would require `xdotool` instead of `wtype`).
 
 ---
