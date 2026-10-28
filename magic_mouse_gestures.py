@@ -18,7 +18,7 @@ import time
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 
 # Magic Mouse 2 identifiers
 VENDOR_ID = "004c"
