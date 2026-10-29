@@ -92,16 +92,44 @@ The driver detects the version from the output of `ydotool help`; set
 
 1. Install it (`sudo pacman -S ydotool`, `sudo apt install ydotool` or
    `sudo dnf install ydotool`).
-2. Start the daemon as your user. Arch ships a user unit:
+2. Run the daemon as your **user**, not as a system service. A root `ydotoold`
+   has no `XDG_RUNTIME_DIR`, so it creates its socket at `/tmp/.ydotool_socket`
+   while the `ydotool` client looks in `/run/user/<uid>/.ydotool_socket`, and
+   the keys never arrive. The daemon only needs access to `/dev/uinput`, not
+   root. Arch ships a user unit:
 
    ```bash
    systemctl --user enable --now ydotool
    ```
 
-   On other distributions run `ydotoold` yourself or write a user unit for it.
-3. Make sure your user can open `/dev/uinput`. Either add yourself to the
-   `input` group (`sudo usermod -aG input $USER`, then log in again) or grant an
-   ACL: `sudo setfacl -m u:$USER:rw /dev/uinput`.
+   Elsewhere, use the unit in this repository, which puts the socket where the
+   client expects it:
+
+   ```bash
+   cp systemd/ydotoold.service ~/.config/systemd/user/
+   systemctl --user daemon-reload
+   systemctl --user enable --now ydotoold.service
+   ```
+
+   The unit assumes `ydotoold` is at `/usr/bin/ydotoold`; adjust `ExecStart` if
+   `command -v ydotoold` says otherwise. If you previously ran a root
+   `ydotoold` service, disable it and delete `/tmp/.ydotool_socket` first.
+3. Make sure your user can open `/dev/uinput`. A udev rule with the `uaccess`
+   tag is the lasting way to do it, and narrower than joining the `input` group,
+   which can read every input device:
+
+   ```bash
+   echo 'KERNEL=="uinput", MODE="0660", GROUP="input", TAG+="uaccess", OPTIONS+="static_node=uinput"' \
+     | sudo tee /etc/udev/rules.d/70-uinput.rules
+   sudo udevadm control --reload && sudo udevadm trigger --name-match=uinput
+   ```
+
+   The file number must be below 73: `73-seat-late.rules` is what acts on the
+   `uaccess` tag, so a rule numbered 80 is silently ignored. Check it with
+   `getfacl /dev/uinput`, which should list a `user:<you>:rw-` line. A one-off
+   `sudo setfacl -m u:$USER:rw /dev/uinput` also works, but it is lost on reboot.
+
+   This setup was reported working on Ubuntu 26.04 with ydotool 1.x.
 
 Check it end to end by running `KEY_BACKEND=ydotool DEBUG=1 python3
 magic_mouse_gestures.py` and swiping: the log should show the back/forward
@@ -323,7 +351,11 @@ browser doesn't navigate, the key backend is failing:
   protocol`. Install `ydotool` and start `ydotoold` (see
   [Setting up ydotool](#setting-up-ydotool)).
 - If `ydotoold` is not running, `ydotool` fails to connect to its socket
-  (`/run/user/<uid>/.ydotool_socket`). Check `systemctl --user status ydotool`.
+  (`/run/user/<uid>/.ydotool_socket`). Check `systemctl --user status ydotool`
+  (or `ydotoold.service` if you use the unit from this repository).
+- If `ydotoold` runs as a system service, its socket is at `/tmp/.ydotool_socket`
+  and the client never finds it. Run it as a user service instead (see
+  [Setting up ydotool](#setting-up-ydotool)).
 - Force a backend with `KEY_BACKEND=wtype` or `KEY_BACKEND=ydotool` to see
   which one fails.
 
