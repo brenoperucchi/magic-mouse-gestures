@@ -11,6 +11,13 @@ INSTALL_DIR="/opt/magic-mouse-gestures"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 USER_SERVICE_DIR="$HOME/.config/systemd/user"
 
+# Apple uses two vendor IDs for these mice (05AC and 004C) and three products:
+# Magic Mouse 1 (030D), Magic Mouse 2 (0269) and Magic Mouse 2 USB-C (0323).
+# Keep in step with DEVICE_MODELS in magic_mouse_gestures.py and with
+# udev/99-magic-mouse.rules.
+# HID_ID lines look like: HID_ID=0005:000005AC:0000030D
+HID_ID_PATTERN='HID_ID=[0-9A-Fa-f]+:0000(05AC|004C):0000(030D|0269|0323)'
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -143,7 +150,7 @@ for hidraw in /dev/hidraw*; do
     if [[ -r "$hidraw" ]]; then
         # Check if this is the Magic Mouse
         UEVENT="/sys/class/hidraw/$(basename $hidraw)/device/uevent"
-        if [[ -f "$UEVENT" ]] && grep -qi "004C" "$UEVENT" && grep -qi "0269" "$UEVENT"; then
+        if [[ -f "$UEVENT" ]] && grep -qiE "$HID_ID_PATTERN" "$UEVENT"; then
             PERMS=$(stat -c "%a" "$hidraw")
             if [[ "$PERMS" == "666" ]]; then
                 echo -e "${GREEN}✓ Device permissions OK ($hidraw)${NC}"

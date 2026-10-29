@@ -46,7 +46,13 @@ Prefer the opposite direction? Set `SWIPE_REVERSE=1` to swap them.
 | Device | Vendor:Product | Status |
 |--------|----------------|--------|
 | Magic Mouse 2 (Bluetooth/Lightning) | `004C:0269` | Tested (Hyprland) |
-| Magic Mouse 1, Magic Mouse 2 USB-C | `05AC:030D`, `05AC:0323` | Not supported |
+| Magic Mouse 1 | `05AC:030D` | Supported, untested (needs testers) |
+| Magic Mouse 2 USB-C | `004C:0323` / `05AC:0323` | Supported, untested (needs testers) |
+
+Apple reports two vendor IDs (`05AC` and `004C`) depending on the model and the
+connection; the driver and the udev rules accept both. The Magic Mouse 1 uses
+touch report `0x29` with a 6-byte header, the Magic Mouse 2 report `0x12` with a
+14-byte header.
 
 ### Supported Desktops
 
@@ -297,7 +303,8 @@ Make sure your Magic Mouse 2 is connected via Bluetooth:
 bluetoothctl devices Connected
 ```
 
-Then check that the kernel exposes it as `004C:0269`:
+Then check that the kernel exposes it with one of the supported IDs (for a
+Magic Mouse 2, `004C:0269`):
 
 ```bash
 grep -H HID_ID /sys/class/hidraw/hidraw*/device/uevent

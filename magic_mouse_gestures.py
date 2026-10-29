@@ -13,6 +13,7 @@ License: MIT
 import os
 import sys
 import glob
+import re
 import subprocess
 import time
 from dataclasses import dataclass
@@ -20,9 +21,22 @@ from typing import List, Optional, Tuple
 
 __version__ = "1.3.1"
 
-# Magic Mouse 2 identifiers
-VENDOR_ID = "004c"
-PRODUCT_ID = "0269"
+# Supported devices, keyed by (vendor, product). Apple uses two vendor IDs:
+# over USB these mice report 05AC, over Bluetooth the Magic Mouse 2 reports
+# 004C and the Magic Mouse 1 reports 05AC. The touch report ID and header
+# size follow the kernel's hid-magicmouse driver.
+APPLE_VENDOR_IDS = (0x05AC, 0x004C)
+DEVICE_MODELS = {
+    0x030D: {'name': 'Magic Mouse 1', 'report_id': 0x29, 'header_size': 6},
+    0x0269: {'name': 'Magic Mouse 2', 'report_id': 0x12, 'header_size': 14},
+    0x0323: {'name': 'Magic Mouse 2 USB-C', 'report_id': 0x12, 'header_size': 14},
+}
+SUPPORTED_DEVICES = {
+    (vendor, product): model
+    for product, model in DEVICE_MODELS.items()
+    for vendor in APPLE_VENDOR_IDS
+}
+DEFAULT_DEVICE = DEVICE_MODELS[0x0269]
 
 # Touch coordinates are 12-bit (0-4095)
 COORD_MAX = 4096
@@ -108,22 +122,29 @@ class GestureState:
     last_scroll_time: float = 0
 
 
-def find_hidraw_device() -> Optional[str]:
-    """
-    Locate the hidraw device for Magic Mouse 2.
+def parse_hid_id(uevent: str) -> Optional[Tuple[int, int]]:
+    """Extract (vendor, product) from the HID_ID line of a hidraw uevent."""
+    match = re.search(r'^HID_ID=[0-9A-Fa-f]+:([0-9A-Fa-f]+):([0-9A-Fa-f]+)$', uevent, re.MULTILINE)
+    if not match:
+        return None
+    return int(match.group(1), 16), int(match.group(2), 16)
 
-    Searches /dev/hidraw* devices and checks their vendor/product IDs
-    against known Magic Mouse 2 identifiers.
+
+def find_hidraw_device() -> Optional[Tuple[str, dict]]:
     """
-    for hidraw in glob.glob('/dev/hidraw*'):
+    Locate the hidraw device of a supported Magic Mouse.
+
+    Searches /dev/hidraw* devices and matches their vendor/product IDs
+    against SUPPORTED_DEVICES. Returns (path, model) or None.
+    """
+    for hidraw in sorted(glob.glob('/dev/hidraw*')):
         try:
             sysfs_path = f'/sys/class/hidraw/{os.path.basename(hidraw)}/device/uevent'
             if os.path.exists(sysfs_path):
                 with open(sysfs_path, 'r') as f:
-                    content = f.read().lower()
-                    # Use constants for device matching
-                    if VENDOR_ID in content and PRODUCT_ID in content:
-                        return hidraw
+                    ids = parse_hid_id(f.read())
+                if ids in SUPPORTED_DEVICES:
+                    return hidraw, SUPPORTED_DEVICES[ids]
         except (IOError, PermissionError):
             continue
     return None
@@ -164,25 +185,28 @@ def parse_touch(data: bytes, offset: int) -> Touch:
     )
 
 
-def parse_report(data: bytes) -> List[Touch]:
+def parse_report(data: bytes, device: dict = DEFAULT_DEVICE) -> List[Touch]:
     """
-    Parse a complete HID report from the Magic Mouse 2.
+    Parse a complete HID touch report from a Magic Mouse.
 
     Report structure:
-    - 14 bytes header (mouse movement data)
+    - 1 byte report ID, inside a header of device['header_size'] bytes
+      (mouse movement data)
     - N * 8 bytes touch data (one block per detected finger)
 
-    Only returns touches in active contact states (1-4).
+    The mouse interleaves other reports on the same node, so the report ID
+    is checked. Only returns touches in active contact states (1-4).
     States 5-7 are lift/transitional and are filtered out.
     """
-    if len(data) < 14:
+    header = device['header_size']
+    if len(data) < header or data[0] != device['report_id']:
         return []
 
     touches = []
-    num_fingers = (len(data) - 14) // 8
+    num_fingers = (len(data) - header) // 8
 
     for i in range(num_fingers):
-        offset = 14 + (i * 8)
+        offset = header + (i * 8)
         if offset + 8 <= len(data):
             touch = parse_touch(data, offset)
             # Only include active contact states, filter lift/transitional
@@ -408,7 +432,7 @@ def gesture_action(gesture: str) -> Optional[Tuple[str, str, str]]:
     return None
 
 
-def run_device_loop(fd: int, state: GestureState) -> bool:
+def run_device_loop(fd: int, state: GestureState, device: dict = DEFAULT_DEVICE) -> bool:
     """
     Main device reading loop.
 
@@ -440,7 +464,7 @@ def run_device_loop(fd: int, state: GestureState) -> bool:
             time.sleep(0.1)
             continue
 
-        touches = parse_report(data)
+        touches = parse_report(data, device)
 
         if DEBUG and touches:
             for t in touches:
@@ -466,12 +490,13 @@ def main():
 
     while True:
         # Find device
-        hidraw = find_hidraw_device()
-        if not hidraw:
+        found = find_hidraw_device()
+        if not found:
             print(f"Magic Mouse not found, retrying in {reconnect_delay:.0f}s...")
             time.sleep(reconnect_delay)
             reconnect_delay = min(reconnect_delay * RECONNECT_DELAY_MULTIPLIER, RECONNECT_DELAY_MAX)
             continue
+        hidraw, device = found
 
         # Open device
         try:
@@ -496,12 +521,12 @@ def main():
         state.last_gesture_time = 0
         state.last_scroll_time = 0
 
-        print(f"Connected: {hidraw}")
+        print(f"Connected: {device['name']} at {hidraw}")
         print("Swipe horizontally for browser back/forward")
         print("Press Ctrl+C to stop\n")
 
         try:
-            should_reconnect = run_device_loop(fd, state)
+            should_reconnect = run_device_loop(fd, state, device)
             if not should_reconnect:
                 break
         except KeyboardInterrupt:
